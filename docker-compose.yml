@@ -1,0 +1,42 @@
+# Run with: docker compose --env-file .env.local up -d
+services:
+  baserow:
+    image: baserow/baserow:2.4.1
+    container_name: feedback-baserow
+    environment:
+      BASEROW_PUBLIC_URL: http://localhost:8090
+      # The bridge receiving webhooks lives on a private address (host or
+      # compose network); Baserow refuses such targets unless allowed.
+      BASEROW_WEBHOOKS_ALLOW_PRIVATE_ADDRESS: "true"
+    ports:
+      - "8090:80"
+    volumes:
+      - baserow_data:/baserow/data
+    restart: unless-stopped
+
+  gitlab:
+    image: gitlab/gitlab-ce:19.4.5-ce.0
+    container_name: feedback-gitlab
+    hostname: localhost
+    environment:
+      GITLAB_ROOT_PASSWORD: ${GITLAB_ROOT_PASSWORD:?}
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://localhost:8929'
+        gitlab_rails['gitlab_shell_ssh_port'] = 2224
+        puma['worker_processes'] = 2
+        sidekiq['concurrency'] = 5
+        prometheus_monitoring['enable'] = false
+    ports:
+      - "8929:8929"
+    shm_size: 256m
+    volumes:
+      - gitlab_config:/etc/gitlab
+      - gitlab_logs:/var/log/gitlab
+      - gitlab_data:/var/opt/gitlab
+    restart: unless-stopped
+
+volumes:
+  baserow_data:
+  gitlab_config:
+  gitlab_logs:
+  gitlab_data:
